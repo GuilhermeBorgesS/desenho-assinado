@@ -22,6 +22,6 @@ Framework preset: `None`. Build command: vazio. Build output directory: `public`
 
 ## Identificação (preencha após o fork)
 
-Nome: 
-RA: 
-URL: https://
+Nome: Guilherme Borges Szimzek
+RA: 2026109288
+URL: https://guilherme-szimzek-desenho-assinado.pages.dev
