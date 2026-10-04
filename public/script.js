@@ -1,23 +1,17 @@
-// script.js
-// Versao final: o navegador apenas faz o login com o Google, envia o numero
-// e o id_token ao servidor (/api/desenho) e exibe o SVG recebido.
-// A funcao gerarDesenho agora roda somente no servidor.
-
 const CLIENT_ID = "864795118563-1tr4gn0p4bdcor833ejngkpjhae7mvpl.apps.googleusercontent.com";
 
-const formulario = document.getElementById("formulario");
-const campoNumero = document.getElementById("numero");
-const area = document.getElementById("desenho");
-const mensagem = document.getElementById("mensagem");
-const botaoBaixar = document.getElementById("baixar");
-const statusLogin = document.getElementById("status-login");
-
-let svgAtual = "";
 let idToken = null;
+let svgAtual = null;
 
-// Chamada pelo Google depois do login: credential e o id_token (JWT).
+const formulario = document.getElementById("formulario");
+const inputNumero = document.getElementById("numero");
+const mensagem = document.getElementById("mensagem");
+const statusLogin = document.getElementById("status-login");
+const desenho = document.getElementById("desenho");
+const baixar = document.getElementById("baixar");
+
 function aoLogar(resposta) {
-  idToken = resposta.credential;
+  idToken = resposta.credential; // id_token (JWT) emitido pelo Google
   statusLogin.textContent = "Login realizado com sucesso.";
   mensagem.textContent = "";
 }
@@ -33,55 +27,64 @@ window.addEventListener("load", () => {
   );
 });
 
-formulario.addEventListener("submit", async (evento) => {
-  evento.preventDefault();
+formulario.addEventListener("submit", async (e) => {
+  e.preventDefault();
   mensagem.textContent = "";
-  area.innerHTML = "";
-  botaoBaixar.hidden = true;
+  desenho.innerHTML = "";
+  baixar.hidden = true;
+  svgAtual = null;
 
-  const numero = Number(campoNumero.value);
+  const numero = Number(inputNumero.value);
 
-  const cabecalhos = { "Content-Type": "application/json" };
+  const headers = { "Content-Type": "application/json" };
   if (idToken) {
-    cabecalhos["Authorization"] = "Bearer " + idToken;
+    headers["Authorization"] = "Bearer " + idToken;
   }
 
   try {
-    const resposta = await fetch("/api/desenho", {
+    const resp = await fetch("/api/desenho", {
       method: "POST",
-      headers: cabecalhos,
+      headers,
       body: JSON.stringify({ numero }),
     });
 
-    if (resposta.status === 400) {
-      mensagem.textContent = "Erro 400: digite um inteiro entre 1 e 100.";
+    if (resp.status === 400) {
+      mensagem.textContent = "Erro 400: número inválido. Informe um inteiro entre 1 e 100.";
       return;
     }
-    if (resposta.status === 401) {
+    if (resp.status === 401) {
       mensagem.textContent = "Erro 401: faça login com o Google (ou entre novamente, se o login expirou).";
       idToken = null;
       statusLogin.textContent = "";
       return;
     }
-    if (!resposta.ok) {
-      mensagem.textContent = "Erro " + resposta.status + " ao gerar o desenho.";
+    if (!resp.ok) {
+      mensagem.textContent = "Erro " + resp.status + " ao gerar o desenho.";
       return;
     }
 
-    svgAtual = await resposta.text();
-    area.innerHTML = svgAtual;
-    botaoBaixar.hidden = false;
-  } catch (erro) {
+    svgAtual = await resp.text();
+    const url = URL.createObjectURL(new Blob([svgAtual], { type: "image/svg+xml" }));
+
+    const img = document.createElement("img");
+    img.src = url;
+    img.alt = "Desenho gerado para o número " + numero;
+    desenho.appendChild(img);
+
+    baixar.hidden = false;
+  } catch (err) {
     mensagem.textContent = "Falha de rede ao chamar o servidor.";
   }
 });
 
-botaoBaixar.addEventListener("click", () => {
-  const arquivo = new Blob([svgAtual], { type: "image/svg+xml" });
-  const url = URL.createObjectURL(arquivo);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = "exemplo.svg";
-  link.click();
+baixar.addEventListener("click", () => {
+  if (!svgAtual) return;
+  const url = URL.createObjectURL(new Blob([svgAtual], { type: "image/svg+xml" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "exemplo.svg";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
   URL.revokeObjectURL(url);
 });
